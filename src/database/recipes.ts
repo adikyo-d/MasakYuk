@@ -4,7 +4,7 @@ export type Recipe = {
   id: number;
   title: string;
   category: string;
-  duration: string;
+  total_duration_seconds: number;
   cover_image: string | null;
   poster_image: string | null;
   created_at: string;

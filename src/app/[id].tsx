@@ -1,13 +1,19 @@
 import IngredientRow from "@/components/ingredient-row";
 import StepPreviewRow from "@/components/step-preview-row";
 import { isFavorite, toggleFavorite } from "@/database/favorites";
-import { getRecipeDetail } from "@/database/recipes";
+import { deleteRecipe, getRecipeDetail } from "@/database/recipes"; // 👈 Tambahkan deleteRecipe
 import { formatDuration } from "@/utils/format-duration";
-import { BlurView } from "expo-blur";
-import { router, useLocalSearchParams } from "expo-router";
-import { CaretLeft, Clock, CookingPot, Heart } from "phosphor-react-native";
-import { useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+    CaretLeft,
+    Clock,
+    CookingPot,
+    Heart, // 👈 Import ikon Trash
+    PencilSimple,
+    Trash, // 👈 Import ikon Trash
+} from "phosphor-react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native"; // 👈 Import Alert
 
 type Tab = "bahan" | "langkah";
 
@@ -15,9 +21,26 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipeId = Number(id);
 
-  const { recipe, ingredients, steps } = getRecipeDetail(recipeId);
+  const [data, setData] = useState(() => getRecipeDetail(recipeId));
   const [activeTab, setActiveTab] = useState<Tab>("bahan");
   const [favorited, setFavorited] = useState(() => isFavorite(recipeId));
+
+  // Reset semua state saat recipeId berubah (buka resep berbeda)
+  useEffect(() => {
+    setData(getRecipeDetail(recipeId));
+    setFavorited(isFavorite(recipeId));
+    setActiveTab("bahan");
+  }, [recipeId]);
+
+  // Refresh data saat kembali ke layar ini (misal dari mode masak)
+  useFocusEffect(
+    useCallback(() => {
+      setData(getRecipeDetail(recipeId));
+      setFavorited(isFavorite(recipeId));
+    }, [recipeId]),
+  );
+
+  const { recipe, ingredients, steps } = data;
 
   if (!recipe) {
     return (
@@ -37,6 +60,25 @@ export default function RecipeDetailScreen() {
     setFavorited(!favorited);
   };
 
+  // 🚀 Fungsi Konfirmasi & Hapus Resep
+  const handleDeleteRecipe = () => {
+    Alert.alert(
+      "Buang Resep? 🗑️",
+      "Apakah kamu yakin ingin menghapus resep ini dari laci dapurmu? Tindakan ini tidak bisa dibatalkan.",
+      [
+        { text: "Batal", style: "cancel" },
+        {
+          text: "Hapus",
+          style: "destructive",
+          onPress: () => {
+            deleteRecipe(recipeId);
+            router.back(); // Kembali ke halaman sebelumnya setelah dihapus
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View className="flex-1 bg-sketchBg">
       {/* HERO SECTION */}
@@ -47,35 +89,72 @@ export default function RecipeDetailScreen() {
           resizeMode="cover"
         />
 
+        {/* Tombol Kembali (Kiri) */}
         <Pressable
           onPress={() => router.back()}
-          className="absolute top-14 left-4 w-10 h-10 rounded-full overflow-hidden"
+          className="absolute top-14 left-4 w-11 h-11 rounded-full bg-white/90 items-center justify-center"
+          style={{
+            elevation: 2,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+          }}
         >
-          <BlurView
-            intensity={40}
-            tint="light"
-            className="w-full h-full items-center justify-center"
-          >
-            <CaretLeft color="#2F3E46" size={20} weight="bold" />
-          </BlurView>
+          <CaretLeft color="#2F3E46" size={24} weight="bold" />
         </Pressable>
 
-        <Pressable
-          onPress={handleToggleFavorite}
-          className="absolute top-14 right-4 w-10 h-10 rounded-full overflow-hidden"
-        >
-          <BlurView
-            intensity={40}
-            tint="light"
-            className="w-full h-full items-center justify-center"
+        {/* 🚀 Kumpulan Tombol Aksi (Kanan) */}
+        <View className="absolute top-14 right-4 flex-row gap-3">
+          {/* Tombol Edit */}
+          <Pressable
+            onPress={() => router.push(`/edit/${recipeId}`)} // Pastikan rute ini nanti dibuat ya!
+            className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
+            style={{
+              elevation: 2,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+            }}
+          >
+            <PencilSimple color="#2F3E46" size={22} weight="bold" />
+          </Pressable>
+
+          {/* Tombol Hapus */}
+          <Pressable
+            onPress={handleDeleteRecipe}
+            className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
+            style={{
+              elevation: 2,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+            }}
+          >
+            <Trash color="#E07A5F" size={22} weight="bold" />
+          </Pressable>
+
+          {/* Tombol Favorit */}
+          <Pressable
+            onPress={handleToggleFavorite}
+            className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
+            style={{
+              elevation: 2,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+            }}
           >
             <Heart
               color={favorited ? "#E07A5F" : "#2F3E46"}
-              size={20}
-              weight={favorited ? "fill" : "regular"}
+              size={22}
+              weight={favorited ? "fill" : "bold"} // Menggunakan 'bold' saat tidak aktif agar serasi dengan ikon lain
             />
-          </BlurView>
-        </Pressable>
+          </Pressable>
+        </View>
       </View>
 
       {/* WHITE SHEET — Header Info */}
@@ -96,6 +175,14 @@ export default function RecipeDetailScreen() {
               {formatDuration(recipe.total_duration_seconds)}
             </Text>
           </View>
+          {(recipe.cook_count ?? 0) > 0 && (
+            <View className="flex-row items-center bg-sketchCharcoal/80 rounded-full px-3 py-1 ml-2">
+              <CookingPot color="#FFFFFF" size={12} weight="fill" />
+              <Text className="text-white text-xs font-semibold ml-1">
+                Cooked {recipe.cook_count}x
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* TAB SWITCHER */}
@@ -103,8 +190,19 @@ export default function RecipeDetailScreen() {
           <Pressable
             onPress={() => setActiveTab("bahan")}
             className={`flex-1 py-2 rounded-xl items-center ${
-              activeTab === "bahan" ? "bg-sketchCard shadow-sm" : ""
+              activeTab === "bahan" ? "bg-sketchCard" : ""
             }`}
+            style={
+              activeTab === "bahan"
+                ? {
+                    elevation: 2,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                  }
+                : undefined
+            }
           >
             <Text
               className={
@@ -119,8 +217,19 @@ export default function RecipeDetailScreen() {
           <Pressable
             onPress={() => setActiveTab("langkah")}
             className={`flex-1 py-2 rounded-xl items-center ${
-              activeTab === "langkah" ? "bg-sketchCard shadow-sm" : ""
+              activeTab === "langkah" ? "bg-sketchCard" : ""
             }`}
+            style={
+              activeTab === "langkah"
+                ? {
+                    elevation: 2,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 2,
+                  }
+                : undefined
+            }
           >
             <Text
               className={
@@ -160,7 +269,14 @@ export default function RecipeDetailScreen() {
       <View className="absolute bottom-6 left-5 right-5">
         <Pressable
           onPress={() => router.push(`/masak/${recipeId}`)}
-          className="flex-row items-center justify-center gap-2 bg-sketchTerracotta rounded-2xl py-4 shadow-lg"
+          className="flex-row items-center justify-center gap-2 bg-sketchTerracotta rounded-2xl py-4"
+          style={{
+            elevation: 5,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
+          }}
         >
           <CookingPot color="#FFFFFF" size={20} weight="duotone" />
           <Text className="text-white font-bold text-base">Mulai Memasak</Text>

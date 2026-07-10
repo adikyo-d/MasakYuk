@@ -1,6 +1,7 @@
-import { getRecipeDetail } from "@/database/recipes";
+import { getRecipeDetail, incrementCookCount } from "@/database/recipes";
+import { cleanupAudio, playSuccess, playTimerDone } from "@/utils/audio";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
     CaretLeft,
     CaretRight,
@@ -10,8 +11,15 @@ import {
     Play,
     X,
 } from "phosphor-react-native";
-import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    Animated,
+    Easing,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
 export default function CookingModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,15 +31,37 @@ export default function CookingModeScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Animation states
+  const [showSuccess, setShowSuccess] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  // Reset state when screen is focused (solves the bug where it resumes from last step)
+  useFocusEffect(
+    useCallback(() => {
+      setCurrentIndex(0);
+      setRemaining(steps[0]?.duration_seconds ?? 0);
+      setIsRunning(false);
+      setShowSuccess(false);
+      scaleAnim.setValue(0);
+      opacityAnim.setValue(0);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
+    }, [recipeId]),
+  );
+
   const currentStep = steps[currentIndex];
   const isLastStep = currentIndex === steps.length - 1;
   const hasTimer = currentStep?.has_timer === 1;
 
-  // Layar tidak mati selama mode masak aktif
   useEffect(() => {
     activateKeepAwakeAsync();
     return () => {
       deactivateKeepAwake();
+      cleanupAudio();
     };
   }, []);
 
@@ -50,6 +80,7 @@ export default function CookingModeScreen() {
           if (prev <= 1) {
             clearInterval(intervalRef.current!);
             setIsRunning(false);
+            playTimerDone();
             return 0;
           }
           return prev - 1;
@@ -69,13 +100,41 @@ export default function CookingModeScreen() {
     return `${m}:${s}`;
   };
 
-  const goNext = () => {
+  const goNext = useCallback(() => {
     if (isLastStep) {
-      router.replace(`/masak/selesai?recipeId=${recipeId}`);
+      incrementCookCount(recipeId);
+      setShowSuccess(true);
+      playSuccess();
+
+      // Start Animation
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.out(Easing.back(1.5)),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setTimeout(() => {
+          Animated.timing(opacityAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }).start(() => {
+            setShowSuccess(false);
+            router.back();
+          });
+        }, 2000);
+      });
     } else {
       setCurrentIndex((i) => i + 1);
     }
-  };
+  }, [isLastStep, recipeId, scaleAnim, opacityAnim]);
 
   const goPrev = () => {
     if (currentIndex > 0) setCurrentIndex((i) => i - 1);
@@ -176,6 +235,46 @@ export default function CookingModeScreen() {
           )}
         </Pressable>
       </View>
+
+      {/* Success Animation Overlay */}
+      {showSuccess && (
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              justifyContent: "center",
+              alignItems: "center",
+              opacity: opacityAnim,
+              zIndex: 50,
+            },
+          ]}
+        >
+          <Animated.View
+            style={{
+              transform: [{ scale: scaleAnim }],
+              alignItems: "center",
+              backgroundColor: "#E07A5F",
+              padding: 30,
+              borderRadius: 24,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              elevation: 10,
+              maxWidth: "85%",
+            }}
+          >
+            <CookingPot color="#FFFFFF" size={80} weight="duotone" />
+            <Text className="mt-4 text-3xl font-bold text-white text-center">
+              Selamat Menikmati!
+            </Text>
+            <Text className="mt-2 text-white/90 text-center font-medium">
+              Kamu telah berhasil menyelesaikan resep ini.
+            </Text>
+          </Animated.View>
+        </Animated.View>
+      )}
     </View>
   );
 }

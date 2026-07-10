@@ -53,6 +53,14 @@ export function initDatabase() {
     );
   `);
 
+  // Migration: tambah kolom cook_count jika belum ada
+  const columns = db.getAllSync<{ name: string }>(
+    `PRAGMA table_info(recipes)`,
+  );
+  if (!columns.some((col) => col.name === "cook_count")) {
+    db.execSync(`ALTER TABLE recipes ADD COLUMN cook_count INTEGER DEFAULT 0`);
+  }
+
   const existingProfile = db.getFirstSync<{ id: number }>(
     `SELECT id FROM profile WHERE id = 1`,
   );

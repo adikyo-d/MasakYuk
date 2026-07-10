@@ -8,6 +8,7 @@ export type Recipe = {
   cover_image: string | null;
   poster_image: string | null;
   created_at: string;
+  cook_count: number;
 };
 
 type IngredientInput = { name: string; amount: string };
@@ -103,4 +104,62 @@ export function recalculateTotalDuration(recipeId: number) {
     recipeId,
   ]);
   return total;
+}
+
+export function incrementCookCount(recipeId: number) {
+  db.runSync(
+    `UPDATE recipes SET cook_count = COALESCE(cook_count, 0) + 1 WHERE id = ?`,
+    [recipeId],
+  );
+}
+
+export function updateRecipe(
+  recipeId: number,
+  title: string,
+  category: string,
+  coverImage: string,
+  ingredients: { name: string; amount: string }[],
+  steps: { instruction: string; hasTimer: boolean; durationSeconds: number }[],
+) {
+  // Hitung total durasi baru
+  const totalDuration = steps.reduce(
+    (sum, step) => sum + (step.hasTimer ? step.durationSeconds : 0),
+    0,
+  );
+
+  db.withTransactionSync(() => {
+    // 1. Perbarui tabel resep utama
+    db.runSync(
+      `UPDATE recipes 
+       SET title = ?, category = ?, cover_image = ?, total_duration_seconds = ?
+       WHERE id = ?`,
+      [title, category, coverImage, totalDuration, recipeId],
+    );
+
+    // 2. Hapus bahan lama dan masukkan yang baru
+    db.runSync(`DELETE FROM ingredients WHERE recipe_id = ?`, [recipeId]);
+    for (const ing of ingredients) {
+      db.runSync(
+        `INSERT INTO ingredients (recipe_id, name, amount) VALUES (?, ?, ?)`,
+        [recipeId, ing.name, ing.amount],
+      );
+    }
+
+    // 3. Hapus langkah lama dan masukkan yang baru
+    db.runSync(`DELETE FROM steps WHERE recipe_id = ?`, [recipeId]);
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      db.runSync(
+        `INSERT INTO steps (recipe_id, step_order, instruction, has_timer, duration_seconds) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          recipeId,
+          i + 1,
+          step.instruction,
+          step.hasTimer ? 1 : 0,
+          step.durationSeconds,
+        ],
+      );
+    }
+  });
 }

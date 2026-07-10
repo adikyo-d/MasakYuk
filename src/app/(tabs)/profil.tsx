@@ -1,17 +1,17 @@
 import { getProfile, updateProfile } from "@/database/profile";
-import { File, Directory, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router"; // 🚀 Tambahkan useRouter di sini
+import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
-  Image,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 const avatarsDir = new Directory(Paths.document, "avatars");
@@ -33,6 +33,7 @@ async function saveAvatarLocally(pickedUri: string): Promise<string> {
 }
 
 export default function ProfilScreen() {
+  const router = useRouter(); // 🚀 Inisialisasi router untuk navigasi easter egg
   const [name, setName] = useState("");
   const [birthday, setBirthday] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -53,6 +54,22 @@ export default function ProfilScreen() {
       setAvatarUri(profile.avatar);
     }
   }
+
+  // 🚀 LOGIKA PENDETEKSI ULANG TAHUN
+  const isBirthdayToday = useMemo(() => {
+    if (!birthday || !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) return false;
+
+    // Dapatkan tanggal hari ini (waktu lokal)
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const todayString = `${mm}-${dd}`; // Format: MM-DD
+
+    // Potong "YYYY-" dari ulang tahun di database, sisa: MM-DD
+    const birthdayString = birthday.substring(5);
+
+    return todayString === birthdayString;
+  }, [birthday]);
 
   async function pickAvatar() {
     const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -184,9 +201,7 @@ export default function ProfilScreen() {
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#7F8C8D"
               keyboardType={
-                Platform.OS === "ios"
-                  ? "numbers-and-punctuation"
-                  : "default"
+                Platform.OS === "ios" ? "numbers-and-punctuation" : "default"
               }
               className="rounded-xl border border-gray-200 bg-sketchBg px-4 py-3 text-base text-sketchCharcoal"
             />
@@ -198,7 +213,7 @@ export default function ProfilScreen() {
         </View>
       </View>
 
-      <View className="mt-6 mb-10">
+      <View className="mt-6 mb-6">
         {isEditing ? (
           <View className="flex-row gap-3">
             <TouchableOpacity
@@ -229,6 +244,30 @@ export default function ProfilScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* 🚀 KEJUTAN EASTER EGG (Hanya Muncul Saat Ulang Tahun & Tidak Mode Edit) */}
+      {isBirthdayToday && !isEditing && (
+        <View className="mt-4 mb-20 items-center justify-center">
+          <Text className="text-xs font-bold text-sketchMuted mb-2 tracking-widest">
+            psst... ada yang ngintip 👀
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/rahasia-ulang-tahun")}
+            className="p-2"
+          >
+            <Image
+              // 🚀 Gunakan require() untuk memanggil file lokal
+              source={require("../../../assets/gif/cat-black.gif")}
+              className="w-40 h-40"
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Tambahan margin bawah agar konten tidak tertutup bottom tab */}
+      <View className="h-10" />
     </ScrollView>
   );
 }

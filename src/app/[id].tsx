@@ -3,6 +3,7 @@ import StepPreviewRow from "@/components/step-preview-row";
 import { isFavorite, toggleFavorite } from "@/database/favorites";
 import { deleteRecipe, getRecipeDetail } from "@/database/recipes"; // 👈 Tambahkan deleteRecipe
 import { formatDuration } from "@/utils/format-duration";
+import * as Haptics from "expo-haptics";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
     CaretLeft,
@@ -56,6 +57,7 @@ export default function RecipeDetailScreen() {
   }
 
   const handleToggleFavorite = () => {
+    Haptics.selectionAsync();
     toggleFavorite(recipeId);
     setFavorited(!favorited);
   };

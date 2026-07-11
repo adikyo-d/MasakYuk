@@ -1,5 +1,6 @@
 import { getProfile, updateProfile } from "@/database/profile";
 import { Directory, File, Paths } from "expo-file-system";
+import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router"; // 🚀 Tambahkan useRouter di sini
 import { useCallback, useMemo, useState } from "react";

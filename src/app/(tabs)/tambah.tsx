@@ -3,6 +3,7 @@ import RecipePosterCanvas from "@/components/recipe-poster-canvas";
 import StepInputCard from "@/components/step-input-card";
 import { getProfile } from "@/database/profile";
 import { addRecipe } from "@/database/recipes";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { FloppyDisk, NotePencil, Plus } from "phosphor-react-native";

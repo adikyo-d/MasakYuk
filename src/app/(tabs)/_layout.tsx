@@ -3,8 +3,8 @@ import { Tabs } from "expo-router";
 import {
     Heart,
     HouseLine,
-    MagnifyingGlass,
     Plus,
+    Sparkle,
     UserCircle,
     type Icon,
 } from "phosphor-react-native";
@@ -13,7 +13,7 @@ import { View } from "react-native";
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, Icon> = {
     home: HouseLine,
-    explore: MagnifyingGlass,
+    explore: Sparkle,
     add: Plus,
     favorites: Heart,
     profile: UserCircle,

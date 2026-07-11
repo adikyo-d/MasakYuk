@@ -53,12 +53,12 @@ export function initDatabase() {
     );
   `);
 
-  // Migration: tambah kolom cook_count jika belum ada
-  const columns = db.getAllSync<{ name: string }>(
-    `PRAGMA table_info(recipes)`,
-  );
+  const columns = db.getAllSync<{ name: string }>(`PRAGMA table_info(recipes)`);
   if (!columns.some((col) => col.name === "cook_count")) {
     db.execSync(`ALTER TABLE recipes ADD COLUMN cook_count INTEGER DEFAULT 0`);
+  }
+  if (!columns.some((col) => col.name === "video_url")) {
+    db.execSync(`ALTER TABLE recipes ADD COLUMN video_url TEXT`);
   }
 
   const existingProfile = db.getFirstSync<{ id: number }>(
@@ -125,6 +125,7 @@ function seedInitialRecipes() {
     [
       { name: "Nasi putih", amount: "1 piring" },
       { name: "Telur", amount: "1 butir" },
+
       { name: "Bawang merah", amount: "4 siung" },
       { name: "Bawang putih", amount: "2 siung" },
       { name: "Cabai rawit", amount: "3 buah" },

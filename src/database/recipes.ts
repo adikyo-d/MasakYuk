@@ -7,6 +7,7 @@ export type Recipe = {
   total_duration_seconds: number;
   cover_image: string | null;
   poster_image: string | null;
+  video_url: string | null;
   created_at: string;
   cook_count: number;
 };
@@ -26,17 +27,17 @@ export function addRecipe(
   ingredients: IngredientInput[],
   steps: StepInput[],
   posterImage?: string,
+  videoUrl?: string,
 ) {
-  // Hitung total durasi dari seluruh step
   const totalDuration = steps.reduce(
     (sum, step) => sum + step.durationSeconds,
     0,
   );
 
   const result = db.runSync(
-    `INSERT INTO recipes (title, category, total_duration_seconds, cover_image, poster_image)
-     VALUES (?, ?, ?, ?, ?)`,
-    [title, category, totalDuration, coverImage, posterImage ?? null],
+    `INSERT INTO recipes (title, category, total_duration_seconds, cover_image, poster_image, video_url)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [title, category, totalDuration, coverImage, posterImage ?? null, videoUrl ?? null],
   );
   const recipeId = result.lastInsertRowId;
 

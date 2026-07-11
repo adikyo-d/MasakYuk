@@ -1,5 +1,6 @@
 import { getProfile } from "@/database/profile";
 import { getAllRecipes, type Recipe } from "@/database/recipes";
+import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CloudSun, Moon, Quotes, Sun } from "phosphor-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -196,7 +197,10 @@ export default function BerandaScreen() {
 
         <TouchableOpacity
           className="h-12 w-12 overflow-hidden items-center justify-center rounded-full bg-sketchTerracotta shadow-sm"
-          onPress={() => router.push("/profil")}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/profil");
+          }}
         >
           {profileAvatar ? (
             <Image

@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 20.5.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://elzfeqcacfefqxqgrolh.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsemZlcWNhY2ZlZnF4cWdyb2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3OTAzNjcsImV4cCI6MjA5OTM2NjM2N30.kjnSpfhw9AvuV94QWRUQD5f8no2XZ3v6KT4DxmUKpXE",
+        "EXPO_PUBLIC_RENDER_API_URL": "https://masakyuk-backend-xifn.vercel.app"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

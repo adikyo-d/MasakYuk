@@ -1,22 +1,47 @@
+import ChefAIModal from "@/components/chef-ai-modal";
 import IngredientRow from "@/components/ingredient-row";
 import StepPreviewRow from "@/components/step-preview-row";
+import YoutubePlayer from "@/components/youtube-player";
 import { isFavorite, toggleFavorite } from "@/database/favorites";
-import { deleteRecipe, getRecipeDetail } from "@/database/recipes"; // 👈 Tambahkan deleteRecipe
+import { deleteRecipe, getRecipeDetail } from "@/database/recipes";
+import { shareRecipe } from "@/services/share-service";
 import { formatDuration } from "@/utils/format-duration";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
     CaretLeft,
     Clock,
     CookingPot,
-    Heart, // 👈 Import ikon Trash
+    Heart,
     PencilSimple,
-    Trash, // 👈 Import ikon Trash
+    Play,
+    ShareNetwork,
+    Sparkle,
+    Trash,
 } from "phosphor-react-native";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native"; // 👈 Import Alert
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Pressable,
+    Share as RNShare,
+    ScrollView,
+    Text,
+    View,
+} from "react-native";
 
 type Tab = "bahan" | "langkah";
+
+// Satu style shadow dipakai bareng semua tombol aksi bulat[cite: 12]
+const actionButtonShadow = {
+  elevation: 3,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.12,
+  shadowRadius: 4,
+};
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,15 +50,19 @@ export default function RecipeDetailScreen() {
   const [data, setData] = useState(() => getRecipeDetail(recipeId));
   const [activeTab, setActiveTab] = useState<Tab>("bahan");
   const [favorited, setFavorited] = useState(() => isFavorite(recipeId));
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
-  // Reset semua state saat recipeId berubah (buka resep berbeda)
+  //  State untuk mengontrol kemunculan Modal Chef AI
+  const [showChefAI, setShowChefAI] = useState(false);
+
   useEffect(() => {
     setData(getRecipeDetail(recipeId));
     setFavorited(isFavorite(recipeId));
     setActiveTab("bahan");
+    setIsPlayingVideo(false);
   }, [recipeId]);
 
-  // Refresh data saat kembali ke layar ini (misal dari mode masak)
   useFocusEffect(
     useCallback(() => {
       setData(getRecipeDetail(recipeId));
@@ -62,7 +91,6 @@ export default function RecipeDetailScreen() {
     setFavorited(!favorited);
   };
 
-  // 🚀 Fungsi Konfirmasi & Hapus Resep
   const handleDeleteRecipe = () => {
     Alert.alert(
       "Buang Resep? 🗑️",
@@ -74,86 +102,162 @@ export default function RecipeDetailScreen() {
           style: "destructive",
           onPress: () => {
             deleteRecipe(recipeId);
-            router.back(); // Kembali ke halaman sebelumnya setelah dihapus
+            router.back();
           },
         },
       ],
     );
   };
 
+  const handleShareRecipe = async () => {
+    try {
+      setIsSharing(true);
+      Haptics.selectionAsync();
+
+      const code = await shareRecipe({
+        title: recipe.title,
+        category: recipe.category,
+        cover_image: recipe.cover_image ?? null,
+        video_url: recipe.video_url ?? null,
+        ingredients: ingredients.map((ing: any) => ({
+          name: ing.name,
+          amount: ing.amount,
+        })),
+        steps: steps.map((s: any) => ({
+          instruction: s.instruction,
+          hasTimer: s.has_timer === 1,
+          durationSeconds: s.duration_seconds,
+        })),
+      });
+
+      const link = `masakyuk://import/${code}`;
+      await Clipboard.setStringAsync(link);
+
+      Alert.alert(
+        "Resep Siap Dibagikan! 🎉",
+        `Kode: ${code}\n\nLink import sudah disalin ke clipboard.`,
+        [
+          { text: "Tutup", style: "cancel" },
+          {
+            text: "Bagikan",
+            onPress: () =>
+              RNShare.share({
+                message: `Cobain resep "${recipe.title}" dari dapurku! ${link}\n\nAtau masukkan kode: ${code}`,
+              }),
+          },
+        ],
+      );
+    } catch (error: any) {
+      console.error("Gagal share resep:", error);
+      Alert.alert(
+        "Gagal Membagikan",
+        error?.message ??
+          "Tidak bisa membagikan resep sekarang. Coba lagi nanti.",
+      );
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <View className="flex-1 bg-sketchBg">
       {/* HERO SECTION */}
       <View style={{ height: "38%" }}>
-        <Image
-          source={{ uri: recipe.cover_image }}
-          className="w-full h-full"
-          resizeMode="cover"
-        />
+        {isPlayingVideo && recipe.video_url ? (
+          <View className="flex-1 bg-black justify-center">
+            <YoutubePlayer url={recipe.video_url} height={280} />
+            <Pressable
+              onPress={() => setIsPlayingVideo(false)}
+              className="absolute top-14 right-4 bg-white/20 px-3 py-1 rounded-full"
+            >
+              <Text className="text-white text-xs font-bold">Tutup Video</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <Image
+              source={{ uri: recipe.cover_image || "" }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+            {recipe.video_url && (
+              <Pressable
+                onPress={() => setIsPlayingVideo(true)}
+                className="absolute inset-0 items-center justify-center bg-black/10"
+              >
+                <View className="w-16 h-16 rounded-full bg-sketchTerracotta items-center justify-center shadow-xl">
+                  <Play color="#FFFFFF" size={32} weight="fill" />
+                </View>
+              </Pressable>
+            )}
+          </>
+        )}
 
         {/* Tombol Kembali (Kiri) */}
         <Pressable
           onPress={() => router.back()}
           className="absolute top-14 left-4 w-11 h-11 rounded-full bg-white/90 items-center justify-center"
-          style={{
-            elevation: 2,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-          }}
+          style={actionButtonShadow}
         >
           <CaretLeft color="#2F3E46" size={24} weight="bold" />
         </Pressable>
 
-        {/* 🚀 Kumpulan Tombol Aksi (Kanan) */}
-        <View className="absolute top-14 right-4 flex-row gap-3">
+        {/* Kumpulan Tombol Aksi (Kanan) */}
+        <View className="absolute top-14 right-4 flex-row gap-2.5">
+          {/* Tombol Share */}
+          <Pressable
+            onPress={handleShareRecipe}
+            disabled={isSharing}
+            style={({ pressed }) => [
+              actionButtonShadow,
+              { opacity: pressed ? 0.85 : 1 },
+            ]}
+            className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
+          >
+            {isSharing ? (
+              <ActivityIndicator color="#E07A5F" size="small" />
+            ) : (
+              <ShareNetwork color="#2F3E46" size={21} weight="bold" />
+            )}
+          </Pressable>
+
           {/* Tombol Edit */}
           <Pressable
-            onPress={() => router.push(`/edit/${recipeId}`)} // Pastikan rute ini nanti dibuat ya!
+            onPress={() => router.push(`/edit/${recipeId}`)}
+            style={({ pressed }) => [
+              actionButtonShadow,
+              { opacity: pressed ? 0.85 : 1 },
+            ]}
             className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
-            style={{
-              elevation: 2,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-            }}
           >
-            <PencilSimple color="#2F3E46" size={22} weight="bold" />
+            <PencilSimple color="#2F3E46" size={21} weight="bold" />
           </Pressable>
 
           {/* Tombol Hapus */}
           <Pressable
             onPress={handleDeleteRecipe}
+            style={({ pressed }) => [
+              actionButtonShadow,
+              { opacity: pressed ? 0.85 : 1 },
+            ]}
             className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
-            style={{
-              elevation: 2,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-            }}
           >
-            <Trash color="#E07A5F" size={22} weight="bold" />
+            <Trash color="#E07A5F" size={21} weight="bold" />
           </Pressable>
 
           {/* Tombol Favorit */}
           <Pressable
             onPress={handleToggleFavorite}
+            style={({ pressed }) => [
+              actionButtonShadow,
+              { opacity: pressed ? 0.85 : 1 },
+            ]}
             className="w-11 h-11 rounded-full bg-white/90 items-center justify-center"
-            style={{
-              elevation: 2,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-            }}
           >
             <Heart
               color={favorited ? "#E07A5F" : "#2F3E46"}
-              size={22}
-              weight={favorited ? "fill" : "bold"} // Menggunakan 'bold' saat tidak aktif agar serasi dengan ikon lain
+              size={21}
+              weight={favorited ? "fill" : "bold"}
             />
           </Pressable>
         </View>
@@ -246,6 +350,17 @@ export default function RecipeDetailScreen() {
         </View>
 
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* 🚀 TOMBOL PEMANGGIL CHEF AI */}
+          <Pressable
+            onPress={() => setShowChefAI(true)}
+            className="mb-4 mt-2 flex-row items-center justify-center gap-2 rounded-2xl border border-sketchTerracotta bg-sketchTerracotta/10 py-3 shadow-sm"
+          >
+            <Sparkle color="#E07A5F" size={20} weight="fill" />
+            <Text className="text-base font-bold text-sketchTerracotta">
+              Tanya Chef AI
+            </Text>
+          </Pressable>
+
           {activeTab === "bahan"
             ? ingredients.map((ing: any) => (
                 <IngredientRow
@@ -284,6 +399,13 @@ export default function RecipeDetailScreen() {
           <Text className="text-white font-bold text-base">Mulai Memasak</Text>
         </Pressable>
       </View>
+
+      {/* 🚀 KOMPONEN MODAL CHEF AI */}
+      <ChefAIModal
+        visible={showChefAI}
+        onClose={() => setShowChefAI(false)}
+        recipeName={recipe.title}
+      />
     </View>
   );
 }

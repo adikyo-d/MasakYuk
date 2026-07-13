@@ -1,10 +1,12 @@
 import IngredientInputRow from "@/components/ingredient-input-row";
 import RecipePosterCanvas from "@/components/recipe-poster-canvas";
 import StepInputCard from "@/components/step-input-card";
+import YoutubePlayer from "@/components/youtube-player";
 import { getRecipeDetail, updateRecipe } from "@/database/recipes";
+import { extractYoutubeId } from "@/utils/youtube";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { CaretLeft, FloppyDisk, NotePencil, Plus } from "phosphor-react-native";
+import { CaretLeft, FloppyDisk, NotePencil, Play, Plus, YoutubeLogo } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import {
     Alert,
@@ -41,6 +43,8 @@ export default function EditRecipeScreen() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [posterUri, setPosterUri] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [showPreviewVideo, setShowPreviewVideo] = useState(false);
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([]);
   const [steps, setSteps] = useState<StepDraft[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,6 +55,7 @@ export default function EditRecipeScreen() {
       setTitle(data.recipe.title);
       setCategory(data.recipe.category);
       setPosterUri(data.recipe.cover_image);
+      setVideoUrl(data.recipe.video_url || "");
 
       if (data.ingredients.length > 0) {
         setIngredients(
@@ -146,6 +151,7 @@ export default function EditRecipeScreen() {
               ? parseInt(s.durationSeconds || "0", 10)
               : 0,
           })),
+        videoUrl.trim() || null,
       );
       Alert.alert("Berhasil", "Resep berhasil diperbarui!", [
         { text: "OK", onPress: () => router.back() },
@@ -186,10 +192,31 @@ export default function EditRecipeScreen() {
           </Text>
         </View>
 
-        <RecipePosterCanvas
-          initialUri={posterUri}
-          onPosterSaved={(uri) => setPosterUri(uri)}
-        />
+        <View className="relative">
+          <RecipePosterCanvas
+            initialUri={posterUri}
+            onPosterSaved={(uri) => setPosterUri(uri)}
+          />
+          {posterUri && videoUrl && extractYoutubeId(videoUrl) && (
+            <Pressable
+              onPress={() => setShowPreviewVideo(true)}
+              className="absolute bottom-4 right-4 bg-sketchTerracotta w-12 h-12 rounded-full items-center justify-center shadow-lg"
+            >
+              <Play color="#FFFFFF" size={24} weight="fill" />
+            </Pressable>
+          )}
+          {showPreviewVideo && videoUrl && (
+            <View className="absolute inset-0 bg-black/90 rounded-3xl overflow-hidden justify-center">
+              <YoutubePlayer url={videoUrl} />
+              <Pressable
+                onPress={() => setShowPreviewVideo(false)}
+                className="absolute top-4 right-4 bg-white/20 px-3 py-1 rounded-full"
+              >
+                <Text className="text-white text-xs font-bold">Tutup Video</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
 
         <View className="bg-sketchCard rounded-2xl p-4 mb-4 mt-2">
           <Text className="text-sketchMuted text-md mb-1">Name</Text>
@@ -198,6 +225,24 @@ export default function EditRecipeScreen() {
             onChangeText={setTitle}
             className="text-sketchCharcoal text-base border-b border-gray-100 pb-2 mb-4"
           />
+
+          <View className="mb-4">
+            <View className="flex-row items-center gap-2 mb-1">
+              <YoutubeLogo color="#E07A5F" size={18} weight="duotone" />
+              <Text className="text-sketchMuted text-md font-medium">
+                Link Video YouTube (Opsional)
+              </Text>
+            </View>
+            <TextInput
+              value={videoUrl}
+              onChangeText={setVideoUrl}
+              placeholder="https://youtube.com/watch?v=..."
+              placeholderTextColor="#7F8C8D"
+              className="text-sketchCharcoal text-base border-b border-gray-100 pb-2"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
           <Text className="text-sketchMuted text-md mb-2">Categories</Text>
           <View className="flex-row flex-wrap gap-2">
             {CATEGORIES.map((cat) => (

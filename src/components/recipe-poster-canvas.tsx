@@ -75,8 +75,14 @@ export default function RecipePosterCanvas({
   const [brushSize, setBrushSize] = useState(5);
   const [isEraser, setIsEraser] = useState(false);
 
-  const currentPath = useRef(Skia.Path.Make());
-  const [, forceRerender] = useState(0);
+  // 🚀 Pakai PathBuilder (bukan Skia.Path.Make() mutable) — API baru
+  // react-native-skia. Builder-nya disimpan di ref (buat diakumulasi
+  // tiap gesture), dan tiap event kita `.build()` ke state biar
+  // immutable & React tau kapan harus re-render (gak perlu forceRerender).
+  const pathBuilder = useRef(Skia.PathBuilder.Make());
+  const [currentPathSnapshot, setCurrentPathSnapshot] = useState(() =>
+    pathBuilder.current.build(),
+  );
   const canvasRef = useCanvasRef();
 
   const skiaImage = useImage(
@@ -111,16 +117,16 @@ export default function RecipePosterCanvas({
   const pan = Gesture.Pan()
     .runOnJS(true)
     .onStart((e) => {
-      currentPath.current = Skia.Path.Make();
-      currentPath.current.moveTo(e.x, e.y);
-      forceRerender((n) => n + 1);
+      pathBuilder.current = Skia.PathBuilder.Make();
+      pathBuilder.current.moveTo(e.x, e.y);
+      setCurrentPathSnapshot(pathBuilder.current.build());
     })
     .onUpdate((e) => {
-      currentPath.current.lineTo(e.x, e.y);
-      forceRerender((n) => n + 1);
+      pathBuilder.current.lineTo(e.x, e.y);
+      setCurrentPathSnapshot(pathBuilder.current.build());
     })
     .onEnd(() => {
-      const savedPath = currentPath.current.copy();
+      const savedPath = pathBuilder.current.build();
       setStrokes((prev) => [
         ...prev,
         {
@@ -130,8 +136,8 @@ export default function RecipePosterCanvas({
           isEraser,
         },
       ]);
-      currentPath.current = Skia.Path.Make();
-      forceRerender((n) => n + 1);
+      pathBuilder.current = Skia.PathBuilder.Make();
+      setCurrentPathSnapshot(pathBuilder.current.build());
     });
 
   // === Aksi Kanvas ===
@@ -165,8 +171,8 @@ export default function RecipePosterCanvas({
     setPhotoUri(null);
     setPreviewUri(null);
     setStrokes([]);
-    currentPath.current = Skia.Path.Make();
-    forceRerender((n) => n + 1);
+    pathBuilder.current = Skia.PathBuilder.Make();
+    setCurrentPathSnapshot(pathBuilder.current.build());
     onPosterSaved("");
   };
 
@@ -300,7 +306,7 @@ export default function RecipePosterCanvas({
                 />
               ))}
               <Path
-                path={currentPath.current}
+                path={currentPathSnapshot}
                 color={currentColor}
                 style="stroke"
                 strokeWidth={brushSize}

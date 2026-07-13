@@ -1,5 +1,12 @@
 import { getRecipeDetail, incrementCookCount } from "@/database/recipes";
-import { cleanupAudio, playSuccess, playTimerDone } from "@/utils/audio";
+import {
+    cleanupAudio,
+    configureAudioMode,
+    playCookingTheme,
+    playSuccess,
+    playTimerDone,
+    stopCookingTheme,
+} from "@/utils/audio";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
@@ -59,8 +66,12 @@ export default function CookingModeScreen() {
 
   useEffect(() => {
     activateKeepAwakeAsync();
+    configureAudioMode();
+    playCookingTheme(); // 🎵 mulai musik tema begitu masuk mode masak
+
     return () => {
       deactivateKeepAwake();
+      stopCookingTheme();
       cleanupAudio();
     };
   }, []);

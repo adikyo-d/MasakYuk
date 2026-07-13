@@ -10,6 +10,9 @@ export type Recipe = {
   video_url: string | null;
   created_at: string;
   cook_count: number;
+  // 🚀 Tambahan Baru
+  cloud_id: string | null;
+  is_synced: number;
 };
 
 type IngredientInput = { name: string; amount: string };
@@ -37,7 +40,14 @@ export function addRecipe(
   const result = db.runSync(
     `INSERT INTO recipes (title, category, total_duration_seconds, cover_image, poster_image, video_url)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [title, category, totalDuration, coverImage, posterImage ?? null, videoUrl ?? null],
+    [
+      title,
+      category,
+      totalDuration,
+      coverImage,
+      posterImage ?? null,
+      videoUrl ?? null,
+    ],
   );
   const recipeId = result.lastInsertRowId;
 
@@ -64,6 +74,7 @@ export function addRecipe(
 
   return recipeId;
 }
+
 export function getAllRecipes(): Recipe[] {
   return db.getAllSync(`SELECT * FROM recipes ORDER BY created_at DESC`);
 }
@@ -121,6 +132,7 @@ export function updateRecipe(
   coverImage: string,
   ingredients: { name: string; amount: string }[],
   steps: { instruction: string; hasTimer: boolean; durationSeconds: number }[],
+  videoUrl?: string | null,
 ) {
   // Hitung total durasi baru
   const totalDuration = steps.reduce(
@@ -129,12 +141,12 @@ export function updateRecipe(
   );
 
   db.withTransactionSync(() => {
-    // 1. Perbarui tabel resep utama
+    // 1. Perbarui tabel resep utama dan kembalikan is_synced jadi 0
     db.runSync(
       `UPDATE recipes 
-       SET title = ?, category = ?, cover_image = ?, total_duration_seconds = ?
+       SET title = ?, category = ?, cover_image = ?, total_duration_seconds = ?, video_url = ?, is_synced = 0
        WHERE id = ?`,
-      [title, category, coverImage, totalDuration, recipeId],
+      [title, category, coverImage, totalDuration, videoUrl ?? null, recipeId],
     );
 
     // 2. Hapus bahan lama dan masukkan yang baru
@@ -163,4 +175,34 @@ export function updateRecipe(
       );
     }
   });
+}
+
+export function getUnsyncedRecipes(): Recipe[] {
+  return db.getAllSync(`SELECT * FROM recipes WHERE is_synced = 0`);
+}
+
+export function markRecipeAsSynced(localId: number, cloudId: string) {
+  db.runSync(`UPDATE recipes SET is_synced = 1, cloud_id = ? WHERE id = ?`, [
+    cloudId,
+    localId,
+  ]);
+}
+
+// 🚀 FUNGSI BARU: Mengambil statistik untuk halaman Profil
+export function getStats() {
+  const recipesResult = db.getFirstSync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM recipes`,
+  );
+  const cookedResult = db.getFirstSync<{ total: number }>(
+    `SELECT SUM(cook_count) as total FROM recipes`,
+  );
+  const favoritesResult = db.getFirstSync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM favorites`,
+  );
+
+  return {
+    recipes: recipesResult?.count ?? 0,
+    cooked: cookedResult?.total ?? 0,
+    favorites: favoritesResult?.count ?? 0,
+  };
 }

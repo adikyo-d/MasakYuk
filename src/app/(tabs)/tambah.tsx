@@ -1,13 +1,21 @@
 import IngredientInputRow from "@/components/ingredient-input-row";
 import RecipePosterCanvas from "@/components/recipe-poster-canvas";
 import StepInputCard from "@/components/step-input-card";
+import TypewriterText from "@/components/typewriter-text";
+import YoutubePlayer from "@/components/youtube-player";
 import { getProfile } from "@/database/profile";
 import { addRecipe } from "@/database/recipes";
-import * as Haptics from "expo-haptics";
+import { extractYoutubeId } from "@/utils/youtube";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import { FloppyDisk, NotePencil, Plus } from "phosphor-react-native";
-import { useCallback, useEffect, useState } from "react";
+import {
+    FloppyDisk,
+    NotePencil,
+    Play,
+    Plus,
+    YoutubeLogo,
+} from "phosphor-react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Alert,
     Image,
@@ -36,36 +44,7 @@ type StepDraft = {
   durationSeconds: string;
 };
 
-// 🚀 KOMPONEN ANIMASI KETIK (TYPEWRITER)
-const TypewriterText = ({
-  text,
-  delay = 60,
-}: {
-  text: string;
-  delay?: number;
-}) => {
-  const [displayedText, setDisplayedText] = useState("");
-
-  useEffect(() => {
-    let i = 0;
-    setDisplayedText("");
-    const timer = setInterval(() => {
-      if (i < text.length) {
-        setDisplayedText((prev) => prev + text.charAt(i));
-        i++;
-      } else {
-        clearInterval(timer);
-      }
-    }, delay);
-    return () => clearInterval(timer);
-  }, [text, delay]);
-
-  return (
-    <Text className="text-xl font-bold text-sketchCharcoal">
-      {displayedText}
-    </Text>
-  );
-};
+// 🚀 KOMPONEN ANIMASI KETIK (TYPEWRITER) dihapus karena sudah ada di components/typewriter-text.tsx
 
 export default function TambahResepScreen() {
   // === Sapaan Personal ===
@@ -75,6 +54,8 @@ export default function TambahResepScreen() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [posterUri, setPosterUri] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [showPreviewVideo, setShowPreviewVideo] = useState(false);
 
   // === Bahan-bahan ===
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([
@@ -92,6 +73,39 @@ export default function TambahResepScreen() {
   ]);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // === Sapaan Typewriter: bisa diulang dengan klik setelah selesai ===
+  const greetingText = `Halo Chef ${chefName}, masak apa hari ini?`;
+  const [greetingKey, setGreetingKey] = useState(0);
+  const [isGreetingDone, setIsGreetingDone] = useState(false);
+  const greetingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Kecepatan ketik komponen TypewriterText adalah 60ms/karakter (lihat prop
+  // speed di bawah). Karena komponen bersama itu tidak mengekspos callback
+  // "selesai", waktu selesainya diperkirakan dari panjang teks x kecepatan.
+  const GREETING_SPEED_MS = 60;
+
+  useEffect(() => {
+    setIsGreetingDone(false);
+    if (greetingTimeoutRef.current) {
+      clearTimeout(greetingTimeoutRef.current);
+    }
+    const estimatedDuration = greetingText.length * GREETING_SPEED_MS + 200;
+    greetingTimeoutRef.current = setTimeout(() => {
+      setIsGreetingDone(true);
+    }, estimatedDuration);
+
+    return () => {
+      if (greetingTimeoutRef.current) {
+        clearTimeout(greetingTimeoutRef.current);
+      }
+    };
+    // greetingKey berubah setiap kali user klik untuk mengulang animasi
+  }, [greetingText, greetingKey]);
+
+  const handleReplayGreeting = useCallback(() => {
+    if (!isGreetingDone) return;
+    setGreetingKey((prev) => prev + 1);
+  }, [isGreetingDone]);
 
   useFocusEffect(
     useCallback(() => {
@@ -197,6 +211,8 @@ export default function TambahResepScreen() {
             ? parseInt(s.durationSeconds || "0", 10)
             : 0,
         })),
+        undefined,
+        videoUrl.trim() || undefined,
       );
 
       Alert.alert("Berhasil", "Resep berhasil disimpan ke koleksi!", [
@@ -220,6 +236,8 @@ export default function TambahResepScreen() {
     setPosterUri(null);
     setTitle("");
     setCategory(null);
+    setVideoUrl("");
+    setShowPreviewVideo(false);
     setIngredients([{ id: Date.now().toString(), name: "", amount: "" }]);
     setSteps([
       {
@@ -242,9 +260,9 @@ export default function TambahResepScreen() {
         <View className="flex-row items-center mb-6 gap-4 bg-sketchCard p-4 rounded-3xl border border-gray-100 shadow-sm">
           <View className="h-14 w-14 rounded-full overflow-hidden bg-sketchTerracotta/0 items-center justify-center border border-sketchTerracotta/0">
             <Image
-              source={{
-                uri: "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmt2OTF5dWlxZXR5bDMxb281bmhuMnZpOHlyemg2OTZoaHhjd3dpbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ea74cjF0jieXu/giphy.gif",
-              }} // URL GIF Estetik/Sticker
+              // Gunakan require() untuk memanggil file lokal
+              // Pastikan jumlah titik-titik "../" sesuai dengan kedalaman folder tempat file ini berada
+              source={require("../../../assets/gif/giphy.gif")}
               className="w-10 h-10"
               resizeMode="contain"
             />
@@ -256,15 +274,42 @@ export default function TambahResepScreen() {
                 Resep Baru
               </Text>
             </View>
-            <TypewriterText
-              text={`Halo Chef ${chefName}, masak apa hari ini?`}
-              delay={60}
-            />
+            <Pressable onPress={handleReplayGreeting}>
+              <TypewriterText
+                key={greetingKey}
+                text={greetingText}
+                speed={GREETING_SPEED_MS}
+                className="text-xl font-bold text-sketchCharcoal"
+              />
+            </Pressable>
           </View>
         </View>
 
         {/* B. Kanvas Poster */}
-        <RecipePosterCanvas onPosterSaved={(uri) => setPosterUri(uri)} />
+        <View className="relative">
+          <RecipePosterCanvas onPosterSaved={(uri) => setPosterUri(uri)} />
+          {posterUri && videoUrl && extractYoutubeId(videoUrl) && (
+            <Pressable
+              onPress={() => setShowPreviewVideo(true)}
+              className="absolute bottom-4 right-4 bg-sketchTerracotta w-12 h-12 rounded-full items-center justify-center shadow-lg"
+            >
+              <Play color="#FFFFFF" size={24} weight="fill" />
+            </Pressable>
+          )}
+          {showPreviewVideo && videoUrl && (
+            <View className="absolute inset-0 bg-black/90 rounded-3xl overflow-hidden justify-center">
+              <YoutubePlayer url={videoUrl} />
+              <Pressable
+                onPress={() => setShowPreviewVideo(false)}
+                className="absolute top-4 right-4 bg-white/20 px-3 py-1 rounded-full"
+              >
+                <Text className="text-white text-xs font-bold">
+                  Tutup Video
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
 
         {/* D. Metadata Form */}
         <View className="bg-sketchCard rounded-2xl p-4 mb-4 mt-2">
@@ -278,6 +323,24 @@ export default function TambahResepScreen() {
             placeholderTextColor="#7F8C8D"
             className="text-sketchCharcoal text-base border-b border-gray-100 pb-2 mb-4"
           />
+
+          <View className="mb-4">
+            <View className="flex-row items-center gap-2 mb-1">
+              <YoutubeLogo color="#E07A5F" size={18} weight="duotone" />
+              <Text className="text-sketchMuted text-md font-medium">
+                Link Video YouTube (Opsional)
+              </Text>
+            </View>
+            <TextInput
+              value={videoUrl}
+              onChangeText={setVideoUrl}
+              placeholder="https://youtube.com/watch?v=..."
+              placeholderTextColor="#7F8C8D"
+              className="text-sketchCharcoal text-base border-b border-gray-100 pb-2"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
           <Text className="text-sketchMuted text-md mb-2 font-medium">
             Kategori

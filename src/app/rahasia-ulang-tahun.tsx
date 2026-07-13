@@ -1,6 +1,7 @@
 import PawTapGame from "@/components/paw-tap-game";
 import TypewriterText from "@/components/typewriter-text";
 import { getProfile } from "@/database/profile";
+import { playBirthdayTheme, stopBirthdayTheme } from "@/utils/audio";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { CatIcon, ChefHat, Moon, PaperPlaneTilt } from "phosphor-react-native";
@@ -71,7 +72,7 @@ export default function SecretBirthdayScreen() {
 
   const profile = getProfile();
   const name = profile?.name ?? "Chef";
-  const message = `Halo ${name} 🌙\n\nDi antara semua resep dan kue yang kamu buat,\nada satu resep yang nggak pernah gagal:\nresep bikin orang di sekitarmu ikut bahagia.\n\nSelamat ulang tahun. Semoga tahun ini\nsehangat kue keluar dari oven,\ndan setenang malam berbintang.`;
+  const message = `Halo Broski ${name} 🌙\n\nDi antara semua resep dan kue yang kamu buat,\nada satu resep yang nggak pernah gagal:\nresep bikin orang di sekitarmu ikut bahagia.(Ngasih gw contohnya)\n\nHbd aja si. Semoga tahun ini\nsehangat kue keluar dari oven,\ndan setenang malam berbintang.(rekomendasi kata AI)`;
 
   const catEntrance = useRef(new Animated.Value(0)).current;
   const dialogEntrance = useRef(new Animated.Value(0)).current;
@@ -86,6 +87,14 @@ export default function SecretBirthdayScreen() {
       size: Math.random() * 2 + 1,
     })),
   ).current;
+
+  // 🎵 Musik tema mulai begitu halaman ini dibuka, berhenti saat keluar
+  useEffect(() => {
+    playBirthdayTheme();
+    return () => {
+      stopBirthdayTheme();
+    };
+  }, []);
 
   // Glow bulan berdenyut pelan, terus-menerus
   useEffect(() => {

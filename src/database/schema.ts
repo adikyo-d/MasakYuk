@@ -61,6 +61,15 @@ export function initDatabase() {
     db.execSync(`ALTER TABLE recipes ADD COLUMN video_url TEXT`);
   }
 
+  // 🚀 TAMBAHAN BARU: Kolom untuk Sinkronisasi Supabase
+  if (!columns.some((col) => col.name === "cloud_id")) {
+    db.execSync(`ALTER TABLE recipes ADD COLUMN cloud_id TEXT`);
+  }
+  if (!columns.some((col) => col.name === "is_synced")) {
+    // Default 0 berarti setiap resep baru wajib di-sync
+    db.execSync(`ALTER TABLE recipes ADD COLUMN is_synced INTEGER DEFAULT 0`);
+  }
+
   const existingProfile = db.getFirstSync<{ id: number }>(
     `SELECT id FROM profile WHERE id = 1`,
   );
@@ -121,7 +130,7 @@ function seedInitialRecipes() {
   insertRecipe(
     "Nasi Goreng King Adikyo",
     "Main Course",
-    "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500",
+    "/assets/images/placeholders/nasiGoreng.jpg",
     [
       { name: "Nasi putih", amount: "1 piring" },
       { name: "Telur", amount: "1 butir" },
@@ -180,7 +189,7 @@ function seedInitialRecipes() {
   insertRecipe(
     "Quesillo",
     "Dessert",
-    "/assets/menuPoster/quesillo.png",
+    "/assets/images/placeholders/quesillo.png",
     [
       { name: "Gula pasir (untuk karamel)", amount: "100 gram" },
       { name: "Air (untuk karamel)", amount: "50 ml" },
@@ -238,158 +247,277 @@ function seedInitialRecipes() {
     ],
   );
   insertRecipe(
-    "Soto Ayam",
-    "Soup",
-    "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=500",
+    "Fluffy Pancake",
+    "Dessert",
+    "/assets/images/placeholders/pancake.jpg",
     [
-      { name: "Ayam", amount: "500 gram" },
-      { name: "Bawang merah", amount: "5 siung" },
-      { name: "Bawang putih", amount: "3 siung" },
-      { name: "Kunyit", amount: "2 ruas jari" },
-      { name: "Jahe", amount: "1 ruas jari" },
-      { name: "Serai", amount: "2 batang" },
-      { name: "Daun salam", amount: "3 lembar" },
-      { name: "Daun jeruk", amount: "4 lembar" },
-      { name: "Garam", amount: "secukupnya" },
-      { name: "Air", amount: "1.5 liter" },
-      { name: "Soun", amount: "100 gram" },
-      { name: "Tauge", amount: "100 gram" },
-      { name: "Telur rebus", amount: "3 butir" },
-      { name: "Bawang goreng", amount: "secukupnya" },
-      { name: "Seledri", amount: "2 batang" },
+      { name: "Tepung terigu", amount: "150 gram" },
+      { name: "Gula pasir", amount: "2 sdm" },
+      { name: "Baking powder", amount: "1 sdt" },
+      { name: "Susu cair", amount: "150 ml" },
+      { name: "Telur", amount: "1 butir" },
+      { name: "Mentega cair", amount: "2 sdm" },
+      { name: "Madu/Maple Syrup", amount: "secukupnya" },
     ],
     [
       {
         instruction:
-          "Rebus ayam dalam 1.5 liter air hingga matang, angkat dan suwir-suwir dagingnya",
-        durationSeconds: 1200,
-        hasTimer: true,
-      },
-      {
-        instruction: "Haluskan bawang merah, bawang putih, kunyit, dan jahe",
-        durationSeconds: 180,
+          "Campurkan tepung terigu, gula pasir, dan baking powder di dalam mangkuk besar.",
+        durationSeconds: 120,
         hasTimer: false,
       },
       {
         instruction:
-          "Tumis bumbu halus bersama serai, daun salam, dan daun jeruk hingga harum",
+          "Masukkan susu cair, telur, dan mentega cair. Aduk perlahan hingga tercampur rata (jangan *overmix*).",
+        durationSeconds: 180,
+        hasTimer: false,
+      },
+      {
+        instruction: "Panaskan teflon anti lengket dengan api kecil.",
+        durationSeconds: 120,
+        hasTimer: true,
+      },
+      {
+        instruction:
+          "Tuang 1 sendok sayur adonan ke atas teflon. Masak hingga muncul gelembung bersarang di permukaannya.",
         durationSeconds: 180,
         hasTimer: true,
       },
       {
         instruction:
-          "Masukkan bumbu tumis ke air rebusan ayam, tambahkan garam, masak hingga mendidih",
+          "Balik pancake dan masak sebentar sisi lainnya hingga kecokelatan. Angkat dan sajikan dengan madu.",
+        durationSeconds: 60,
+        hasTimer: true,
+      },
+    ],
+  );
+
+  // 2. Classic Sponge Cake
+  insertRecipe(
+    "Classic Sponge Cake",
+    "Dessert",
+    "/assets/images/placeholders/spongeCake.jpg",
+    [
+      { name: "Telur", amount: "4 butir" },
+      { name: "Gula pasir", amount: "100 gram" },
+      { name: "SP / Emulsifier", amount: "1 sdt" },
+      { name: "Tepung terigu protein sedang", amount: "100 gram" },
+      { name: "Mentega (dilelehkan)", amount: "50 gram" },
+      { name: "Vanili bubuk", amount: "1/2 sdt" },
+    ],
+    [
+      {
+        instruction:
+          "Siapkan loyang, olesi dengan mentega dan taburi sedikit tepung. Panaskan oven di suhu 170°C.",
         durationSeconds: 600,
         hasTimer: true,
       },
       {
-        instruction: "Rendam soun dalam air panas hingga lunak, tiriskan",
-        durationSeconds: 300,
+        instruction:
+          "Kocok telur, gula pasir, dan SP dengan mixer kecepatan tinggi hingga putih, kental, dan berjejak.",
+        durationSeconds: 420,
         hasTimer: true,
       },
       {
         instruction:
-          "Siapkan mangkuk: tata soun, tauge, ayam suwir, dan telur rebus",
+          "Turunkan kecepatan mixer, masukkan tepung terigu dan vanili sedikit demi sedikit hingga rata.",
         durationSeconds: 120,
         hasTimer: false,
       },
       {
         instruction:
-          "Siram dengan kuah panas, taburi bawang goreng dan seledri, sajikan hangat",
-        durationSeconds: 60,
+          "Matikan mixer. Tuang mentega leleh, lalu aduk balik menggunakan spatula hingga tidak ada mentega yang mengendap.",
+        durationSeconds: 180,
         hasTimer: false,
       },
-    ],
-  );
-
-  insertRecipe(
-    "Es Teh Manis",
-    "Beverage",
-    "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=500",
-    [
-      { name: "Teh celup", amount: "2 kantong" },
-      { name: "Gula pasir", amount: "3 sdm" },
-      { name: "Air panas", amount: "300 ml" },
-      { name: "Es batu", amount: "secukupnya" },
-    ],
-    [
       {
         instruction:
-          "Seduh teh celup dengan 300ml air panas dalam teko atau gelas besar",
-        durationSeconds: 300,
+          "Tuang adonan ke loyang. Panggang dalam oven hingga matang sempurna.",
+        durationSeconds: 2100, // 35 menit
         hasTimer: true,
       },
-      {
-        instruction: "Tambahkan gula pasir, aduk hingga larut sempurna",
-        durationSeconds: 60,
-        hasTimer: false,
-      },
-      {
-        instruction: "Siapkan gelas saji, isi dengan es batu secukupnya",
-        durationSeconds: 30,
-        hasTimer: false,
-      },
-      {
-        instruction:
-          "Tuang teh manis ke gelas berisi es batu, aduk sebentar dan sajikan",
-        durationSeconds: 30,
-        hasTimer: false,
-      },
     ],
   );
 
+  // 3. Chewy Soft Cookies
   insertRecipe(
-    "Pisang Goreng Crispy",
+    "Chewy Soft Cookies",
     "Snack",
-    "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=500",
+    "/assets/images/placeholders/softCookies.jpg",
     [
-      { name: "Pisang kepok", amount: "6 buah" },
-      { name: "Tepung terigu", amount: "150 gram" },
-      { name: "Tepung beras", amount: "50 gram" },
-      { name: "Gula pasir", amount: "2 sdm" },
-      { name: "Garam", amount: "1/4 sdt" },
-      { name: "Baking powder", amount: "1/2 sdt" },
-      { name: "Air es", amount: "200 ml" },
-      { name: "Minyak goreng", amount: "secukupnya" },
+      { name: "Mentega (suhu ruang)", amount: "115 gram" },
+      { name: "Gula palem (Brown sugar)", amount: "100 gram" },
+      { name: "Gula pasir", amount: "50 gram" },
+      { name: "Telur", amount: "1 butir" },
+      { name: "Tepung terigu protein sedang", amount: "180 gram" },
+      { name: "Baking soda", amount: "1/2 sdt" },
+      { name: "Chocochip", amount: "150 gram" },
     ],
     [
       {
         instruction:
-          "Campurkan tepung terigu, tepung beras, gula, garam, dan baking powder dalam wadah",
-        durationSeconds: 120,
-        hasTimer: false,
-      },
-      {
-        instruction:
-          "Tuang air es sedikit demi sedikit sambil diaduk hingga adonan licin dan agak kental",
-        durationSeconds: 120,
-        hasTimer: false,
-      },
-      {
-        instruction: "Kupas pisang dan belah menjadi dua bagian memanjang",
-        durationSeconds: 120,
-        hasTimer: false,
-      },
-      {
-        instruction: "Panaskan minyak goreng dalam wajan dengan api sedang",
+          "Kocok mentega, gula palem, dan gula pasir hingga lembut dan creamy.",
         durationSeconds: 180,
         hasTimer: true,
       },
       {
-        instruction:
-          "Celupkan pisang ke dalam adonan tepung hingga terbalut rata",
+        instruction: "Tambahkan telur dan aduk kembali hingga rata.",
         durationSeconds: 60,
         hasTimer: false,
       },
       {
         instruction:
-          "Goreng pisang dalam minyak panas hingga kecokelatan dan crispy, bolak-balik agar matang merata",
+          "Masukkan tepung terigu dan baking soda yang sudah diayak. Aduk rata menggunakan spatula.",
+        durationSeconds: 120,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Masukkan chocochip, aduk rata. Tutup adonan dan diamkan di dalam kulkas agar tidak melebar saat dipanggang.",
+        durationSeconds: 1800, // 30 menit
+        hasTimer: true,
+      },
+      {
+        instruction:
+          "Bentuk adonan menjadi bola-bola, susun di loyang. Panggang di suhu 175°C hingga pinggirannya mulai kecokelatan namun tengahnya masih lembut.",
+        durationSeconds: 720, // 12 menit
+        hasTimer: true,
+      },
+    ],
+  );
+
+  // 4. Beef Kebab
+  insertRecipe(
+    "Beef Kebab Homemade",
+    "Main Course",
+    "/assets/images/placeholders/kebab.jpg",
+    [
+      { name: "Kulit Tortilla", amount: "4 lembar" },
+      { name: "Daging sapi iris", amount: "200 gram" },
+      { name: "Bawang bombay (iris memanjang)", amount: "1/2 buah" },
+      { name: "Selada (iris tipis)", amount: "secukupnya" },
+      { name: "Tomat (iris tipis)", amount: "1 buah" },
+      { name: "Saus tomat & Saus sambal", amount: "secukupnya" },
+      { name: "Mayones", amount: "secukupnya" },
+    ],
+    [
+      {
+        instruction:
+          "Tumis bawang bombay sebentar, lalu masukkan daging sapi iris. Masak hingga daging matang, beri sedikit garam dan lada.",
         durationSeconds: 300,
         hasTimer: true,
       },
       {
         instruction:
-          "Angkat dan tiriskan di atas tisu dapur, sajikan selagi hangat",
+          "Panaskan kulit tortilla di atas teflon tanpa minyak sebentar saja agar lentur, lalu angkat.",
+        durationSeconds: 60,
+        hasTimer: true,
+      },
+      {
+        instruction:
+          "Bentangkan tortilla, tata selada, tomat, bawang bombay, dan daging sapi di bagian tengah.",
+        durationSeconds: 120,
+        hasTimer: false,
+      },
+      {
+        instruction: "Beri saus tomat, saus sambal, dan mayones sesuai selera.",
+        durationSeconds: 60,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Gulung kebab dengan rapat. Panggang kembali di atas teflon yang diberi sedikit margarin hingga kecokelatan.",
+        durationSeconds: 180,
+        hasTimer: true,
+      },
+    ],
+  );
+
+  // 5. Refreshing Virgin Mojito (Mocktail)
+  insertRecipe(
+    "Refreshing Virgin Mojito",
+    "Beverage",
+    "/assets/images/placeholders/mocktail.jpg",
+    [
+      { name: "Daun mint segar", amount: "10-12 lembar" },
+      { name: "Jeruk nipis (potong-potong)", amount: "1 buah" },
+      { name: "Simple syrup (air gula)", amount: "2 sdm" },
+      { name: "Es batu", amount: "secukupnya" },
+      { name: "Air soda jernih (Sprite/Soda water)", amount: "200 ml" },
+    ],
+    [
+      {
+        instruction:
+          "Masukkan potongan jeruk nipis dan daun mint ke dalam gelas saji tebal.",
+        durationSeconds: 30,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Tumbuk perlahan jeruk nipis dan daun mint menggunakan *muddler* atau ujung sendok kayu agar sari dan aromanya keluar.",
+        durationSeconds: 60,
+        hasTimer: false,
+      },
+      {
+        instruction: "Tuangkan simple syrup ke dalam gelas, aduk sebentar.",
+        durationSeconds: 30,
+        hasTimer: false,
+      },
+      {
+        instruction: "Isi gelas dengan es batu hingga penuh.",
+        durationSeconds: 30,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Tuang air soda hingga memenuhi gelas. Aduk perlahan dari bawah ke atas. Sajikan dingin.",
+        durationSeconds: 60,
+        hasTimer: false,
+      },
+    ],
+  );
+
+  // 6. Double Chocolate Milkshake
+  insertRecipe(
+    "Double Chocolate Milkshake",
+    "Beverage",
+    "/assets/images/placeholders/double-chocolate-milkshake.jpg",
+    [
+      { name: "Susu cair full cream (dingin)", amount: "200 ml" },
+      { name: "Es krim cokelat", amount: "3 scoop" },
+      { name: "Sirup cokelat / Kental manis cokelat", amount: "2 sdm" },
+      { name: "Es batu", amount: "secukupnya" },
+      { name: "Whipped cream (opsional)", amount: "untuk topping" },
+      { name: "Chocochip (opsional)", amount: "untuk taburan" },
+    ],
+    [
+      {
+        instruction:
+          "Siapkan gelas saji, hias bagian dinding dalam gelas dengan sirup cokelat agar terlihat estetik. Simpan gelas di kulkas.",
+        durationSeconds: 120,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Masukkan susu cair dingin, es krim cokelat, dan es batu ke dalam blender.",
+        durationSeconds: 60,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Blender dengan kecepatan tinggi hingga semua bahan tercampur halus dan kental.",
+        durationSeconds: 90,
+        hasTimer: true,
+      },
+      {
+        instruction:
+          "Keluarkan gelas saji dari kulkas, tuangkan milkshake cokelat ke dalamnya.",
+        durationSeconds: 30,
+        hasTimer: false,
+      },
+      {
+        instruction:
+          "Semprotkan whipped cream di atasnya dan taburi dengan chocochip atau sisa sirup cokelat. Sajikan segera.",
         durationSeconds: 60,
         hasTimer: false,
       },
